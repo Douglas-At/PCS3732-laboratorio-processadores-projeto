@@ -3,8 +3,10 @@
 **Disciplina:** PCS3732 — Laboratório de Processadores
 **Entrega:** Semana 1 — Estruturação do Projeto
 
-> **Grupo:** _[preencher: nome do grupo / número]_
-> **Integrantes:** _[preencher: nome — NUSP]_
+> **Integrantes:**
+> - Douglas Monteiro Almeida Souza — NUSP 10748048
+> - Guilherme Junji Tutiya — NUSP 14576065
+> - Henrique Maruiti — NUSP 12610243
 
 ---
 

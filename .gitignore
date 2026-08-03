@@ -21,3 +21,7 @@ docs/figuras/*.pdf
 
 # Uso interno (não versionar)
 ACOMPANHAMENTO.md
+
+# Artefatos de build do relatório (PDF vai para o Moodle; repo mantém o .md)
+docs/*.html
+docs/*.pdf
