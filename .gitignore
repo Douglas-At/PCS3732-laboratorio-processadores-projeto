@@ -18,3 +18,6 @@ env/
 *.log
 *.tmp
 docs/figuras/*.pdf
+
+# Uso interno (não versionar)
+ACOMPANHAMENTO.md
