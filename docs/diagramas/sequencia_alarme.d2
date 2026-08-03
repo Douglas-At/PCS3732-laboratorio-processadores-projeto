@@ -1,0 +1,25 @@
+# Diagrama de sequência — acionamento do alarme de emergência
+# Renderizar: d2 sequencia_alarme.d2 ../figuras/sequencia_alarme.png
+
+shape: sequence_diagram
+
+vigia: Vigia {shape: person}
+botao: Botão + GPIO (Edge)
+edge: Firmware Edge
+alarme: Serviço de Alarme (Central)
+canal: Canal de Notificação
+
+vigia -> botao: Pressiona botão
+botao -> edge: Interrupção de GPIO
+edge -> edge: Debounce (~50 ms)
+edge -> alarme: POST /alert (HTTP)
+
+alt: "alt [Rede disponível / Falha de rede]" {
+  disponivel: "[Rede disponível]" {
+    alarme -> edge: 200 OK (ACK)
+    alarme -> canal: Dispara notificação + registra em log
+  }
+  falha: "[Falha de rede]" {
+    edge -> edge: Retransmite (retry com backoff)
+  }
+}

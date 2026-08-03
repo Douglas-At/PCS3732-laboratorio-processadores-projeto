@@ -1,0 +1,23 @@
+# Diagrama de sequência — streaming de vídeo e ajuste de qualidade
+# Renderizar: d2 sequencia_streaming.d2 ../figuras/sequencia_streaming.png
+
+shape: sequence_diagram
+
+vigia: Vigia {shape: person}
+dashboard: Dashboard (Central)
+video: Serviço de Vídeo (Central)
+edge: Firmware Edge
+
+vigia -> dashboard: Abre monitoramento
+dashboard -> video: Solicita conexão de stream
+video -> edge: GET /stream (HTTP)
+
+loop: "loop [A cada frame]" {
+  edge -> video: Frame JPEG (multipart/x-mixed-replace)
+  video -> video: Mede latência do frame
+  video -> dashboard: Atualiza imagem + indicador de latência
+}
+
+vigia -> dashboard: Ajusta qualidade (slider)
+dashboard -> edge: GET /control?var=quality&val=X
+edge -> dashboard: 200 OK

@@ -1,0 +1,43 @@
+# Diagrama de blocos — arquitetura física em 3 camadas
+# Renderizar: d2 diagrama_blocos.d2 ../figuras/diagrama_blocos.png
+
+direction: right
+
+usuario: Segurança / Usuário {shape: person}
+wifi: Rede Wi-Fi 802.11
+
+edge: Módulo Edge (ESP32-CAM / RPi + Câmera) {
+  botao: Botão físico
+  gpio: GPIO + debounce
+  firmware: "Firmware: servidor HTTP/MJPEG + controle"
+  sensor: Sensor de imagem
+
+  botao -> gpio -> firmware
+  sensor -> firmware
+}
+
+central: Computador Central {
+  video: Serviço de Vídeo
+  latencia: Monitor de Latência
+  config: Serviço de Configuração
+  alarme: Serviço de Alarme/Notificação
+  log: Log de Eventos
+  dashboard: Dashboard
+
+  video -> dashboard
+  video -> latencia
+  latencia -> dashboard
+  config -> dashboard
+  alarme -> dashboard
+  alarme -> log
+}
+
+# Fluxo de vídeo/controle (borda <-> central via Wi-Fi)
+edge.firmware -> wifi
+wifi -> central.video: stream MJPEG
+central.config -> wifi: GET /control
+wifi -> edge.firmware
+
+# Fluxo de alarme
+central.alarme -> wifi
+usuario -> central.dashboard
