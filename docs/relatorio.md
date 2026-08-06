@@ -1,7 +1,7 @@
 # Porteiro Eletrônico Inteligente — Sistema de Segurança com Vídeo e Alerta
 
 **Disciplina:** PCS3732 — Laboratório de Processadores
-**Entrega:** Semana 1 — Estruturação do Projeto
+**Entrega:** Semana 2 — Servidor de vídeo / Streaming da câmera (RF1)
 
 > **Integrantes:**
 > - Douglas Monteiro Almeida Souza — NUSP 10748048
@@ -76,7 +76,12 @@ acoplamento entre elas:
 
 1. **Borda (Edge)** — Raspberry Pi 3B+ com a câmera e o botão de alarme. Roda o
    firmware que captura imagem e serve o vídeo, além de ler o botão via GPIO.
-2. **Rede Wi-Fi 802.11** — canal de comunicação entre borda e central.
+2. **Rede Wi-Fi 802.11** — canal de comunicação entre borda e central. Na
+   Semana 2 adotou-se o Raspberry Pi em **modo Access Point** (hotspot próprio,
+   via `nmcli`): o central conecta-se diretamente ao Wi-Fi do Pi (IP ~`10.42.0.1`),
+   sem roteador nem internet. Isso adequa-se a um porteiro local e contorna o
+   *isolamento de clientes* comum em redes compartilhadas (ex.: Wi-Fi
+   institucional), que impede um dispositivo de alcançar o outro.
 3. **Computador Central** — recebe o vídeo, exibe a interface de monitoramento
    (Dashboard), mede a latência, permite configurar a câmera e trata o alarme.
 
@@ -91,10 +96,13 @@ Essa decisão altera apenas o backend de captura (ver Seção 7), não a arquite
 
 **Modelagem estática.** O código é dividido por camada (ver [`src/`](../src/)):
 
-- `src/rpi/camera_stream.py` — servidor de vídeo da borda. A captura fica isolada
-  atrás de uma interface (`FrameSource`), com dois backends possíveis:
-  `picamera2` (módulo CSI, primário) ou OpenCV/V4L2 (câmera USB, *fallback*).
-  Assim, a pendência da câmera não afeta o restante do sistema.
+- `src/rpi/camera_stream.py` — servidor de vídeo da borda (**implementado na
+  Semana 2**: `GET /` e `GET /stream` MJPEG). A captura fica isolada atrás de uma
+  interface (`FrameSource`), com o backend escolhido automaticamente por
+  `make_source()` na ordem `picamera2` (módulo CSI, primário) → OpenCV/V4L2
+  (câmera USB, *fallback*) → fonte sintética (frames gerados por software, para
+  desenvolvimento e teste sem hardware). Assim, a pendência da câmera não afeta o
+  restante do sistema (RNF3).
 - `src/rpi/alarme.py` — leitura do botão com `gpiozero.Button` e debounce por
   `bounce_time`.
 - `src/central/monitor.py` — Dashboard/Serviço de Vídeo, Monitor de Latência e
@@ -151,10 +159,13 @@ botão físico do kit.
 ## 10. Testes Planejados
 
 A estratégia de validação e a rastreabilidade entre requisitos e casos de teste
-estão em [`tests/rastreabilidade.md`](../tests/rastreabilidade.md). Nesta entrega
-os testes são **planejados**; a seção passará a registrar **resultados obtidos**
-conforme a implementação avançar. Os casos de RF2 (evento único por clique) e
-RNF3 (backend plugável) são candidatos a **testes automatizados** (ponto extra).
+estão em [`tests/rastreabilidade.md`](../tests/rastreabilidade.md). Na Semana 2 o
+**RF1 passou a resultado obtido**: o stream MJPEG rodou no Raspberry Pi e foi
+assistido de outro computador pelo navegador (vídeo contínuo), com o Pi provendo
+a rede em modo Access Point. Os demais casos seguem planejados. Os casos de RF2
+(evento único por clique) e RNF3 (backend plugável) são candidatos a **testes
+automatizados** (ponto extra); há uma primeira checagem executável do pipe de
+vídeo em `tests/test_camera_stream.py`.
 
 ## 11. Resultado dos testes iniciais
 Na semana 2, foi realizado um teste de transmissão de vídeo em tempo real utilizando a câmera conectada ao Raspberry Pi 3. Inicialmente, a câmera foi instalada e configurada no dispositivo, e em seguida foi criado um ponto de acesso (Access Point) para permitir a transmissão das imagens por meio da rede sem fio. O teste foi concluído com sucesso, demonstrando que a transmissão ocorreu de forma estável e conforme o esperado. O vídeo correspondente ao experimento encontra-se disponível em [`docs/videos/teste_camera.mp4`](..docs/videos/teste_camera.mp4).
@@ -165,12 +176,15 @@ Nesta primeira semana o projeto foi estruturado: repositório organizado,
 documentação inicial, diagramas de arquitetura e esqueleto do código em camadas.
 A arquitetura em três camadas de baixo acoplamento tende a atender aos requisitos
 funcionais (streaming, alarme, ajuste de qualidade) e não funcionais (latência,
-disponibilidade, manutenibilidade).
+disponibilidade, manutenibilidade). Na Semana 2, o servidor de vídeo foi
+implementado e o **RF1 validado em hardware** — a câmera do Pi foi assistida de
+outro computador (Pi em modo Access Point) —, confirmando na prática a
+viabilidade da captura plugável e do streaming MJPEG.
 
 **Riscos e dificuldades previstas:** confirmação do módulo de câmera CSI (com
 *fallback* para câmera USB) e a latência do MJPEG sob a capacidade do Raspberry
-Pi 3B+. **Próximos passos:** implementar o servidor de vídeo e o fluxo do botão,
-e começar os testes das Seção 10.
+Pi 3B+. **Próximos passos:** o ajuste de qualidade (`GET /control`, RF3) e o
+fluxo do botão de emergência (RF2), seguindo com os testes da Seção 10.
 
 ## Referências
 
