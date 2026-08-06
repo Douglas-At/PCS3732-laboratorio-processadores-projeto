@@ -5,12 +5,16 @@
 # por pip) — por isso não estão listados aqui. Se o picamera2 faltar:
 #     sudo apt install -y python3-picamera2
 
-# Servidor de vídeo (GET /stream, GET /control) — Módulo 1.
+# Servidor de vídeo (GET /stream, POST /save) — porteiro.
 flask
 
-# Backend da câmera USB. Descomente SÓ se usar webcam USB em vez do módulo CSI.
-# (Com módulo CSI, a captura usa o picamera2 do sistema.)
-# opencv-python
+# Overlay (horário + ângulo) queimado no frame: no Pi usa cv2.putText no
+# pre_callback do picamera2 e também serve de backend USB. No Pi OS instalar
+# preferencialmente via apt: sudo apt install -y python3-opencv
+opencv-python
+
+# Overlay dos backends de dev (sintético) — desenha o relógio/ângulo com PIL.
+pillow
 
 # Envio do POST /alert do botão de emergência — módulo do alarme (RF2).
 requests
