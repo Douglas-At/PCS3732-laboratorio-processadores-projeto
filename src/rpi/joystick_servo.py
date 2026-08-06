@@ -36,8 +36,8 @@ PERIODO_US = 20_000
 PULSO_MIN_US = 1000    # 0 graus
 PULSO_MAX_US = 2000    # 180 graus
 
-ANG_MIN = 20
-ANG_MAX = 160
+ANG_MIN = 0
+ANG_MAX = 180
 ANG_CENTRO = 90
 TAXA = 90              # graus/s com o joystick no talo
 ZONA_MORTA = 0.12      # ignora tremor perto do centro

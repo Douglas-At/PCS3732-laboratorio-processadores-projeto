@@ -2,18 +2,18 @@
 
 Ao pressionar o botão físico (GPIO21), a borda dispara um alarme local:
 
-1. **Sirene** no buzzer passivo (GPIO17), alternando duas notas (som de
-   polícia), via ``gpiozero.TonalBuzzer``.
+1. **Sirene** no buzzer passivo (GPIO4), alternando dois tons (sirene de
+   ambulância/polícia) via PWM de software do ``RPi.GPIO`` — mesmo esquema
+   validado em ``buzzer_ambulancia.py`` (``ChangeFrequency`` + duty 50 %).
 2. **Aviso visual** no vídeo do porteiro — o overlay pinta "INTRUSO
    DETECTADO / CHAMANDO A POLICIA" enquanto ``AlarmController.ativo`` é
    verdadeiro (lido por ``camera_stream``).
 3. **Denúncia** — um print da câmera é salvo (callback ``on_disparo``), para a
    galeria "Denúncias à polícia".
 
-Baseia-se no padrão de botão por evento do kit Freenove
-(``Doorbell.py``): ``gpiozero.Button`` com ``when_pressed`` e debounce por
-``bounce_time``. O buzzer passivo precisa de tom (PWM), por isso ``TonalBuzzer``
-e não um ``Buzzer`` liga/desliga.
+Botão e buzzer usam ``RPi.GPIO`` (igual ao servo), evitando conflito de pino
+entre bibliotecas. Botão em pull-up (pressionado = nível baixo), com debounce
+por ``bouncetime`` do ``add_event_detect``.
 """
 
 from __future__ import annotations
@@ -23,12 +23,13 @@ import time
 from typing import Callable, Optional
 
 BUTTON_PIN = 21
-BUZZER_PIN = 17          # ponytail: pino do buzzer passivo; ajustar ao circuito
+BUZZER_PIN = 4           # buzzer passivo (validado em buzzer_ambulancia.py)
+DUTY_50 = 50
 # ponytail: valor inicial; recalibrar contra o contato mecânico real do botão.
 DEBOUNCE_S = 0.05        # ~50 ms
 DURACAO_S = 10.0         # quanto tempo o alarme fica ativo por acionamento
-SIRENE_HZ = (440.0, 880.0)  # duas notas alternadas = sirene
-SIRENE_PERIODO = 0.5     # troca de nota a cada 0,5 s
+SIRENE_HZ = (960.0, 770.0)  # dois tons alternados = sirene (Hz)
+SIRENE_PERIODO = 0.6     # duração de cada tom
 
 
 class AlarmController:
@@ -79,34 +80,44 @@ class AlarmController:
 
 
 def start(button_pin: int = BUTTON_PIN, buzzer_pin: int = BUZZER_PIN):
-    """Inicializa botão + buzzer e devolve o ``AlarmController`` armado.
+    """Inicializa botão + buzzer (RPi.GPIO) e devolve o ``AlarmController``.
 
     Espelha ``joystick_servo.start_in_thread``: sem hardware (máquina de dev),
     retorna ``None`` e o chamador segue sem alarme.
 
     Returns:
-        AlarmController pronto, ou ``None`` se gpiozero/hardware faltarem.
+        AlarmController pronto, ou ``None`` se o RPi.GPIO faltar.
     """
     try:
-        from gpiozero import Button, TonalBuzzer
-        from gpiozero.tones import Tone
+        import RPi.GPIO as GPIO
     except Exception as exc:  # ImportError no PC, etc.
         print(f"[alarme] hardware indisponivel: {exc}")
         return None
 
-    buzzer = TonalBuzzer(buzzer_pin)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(buzzer_pin, GPIO.OUT)
+    GPIO.setup(button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    pwm = GPIO.PWM(buzzer_pin, SIRENE_HZ[1])  # buzzer passivo: tom por PWM
+    pwm.start(0)
 
     def nota(freq: Optional[float]) -> None:
+        # Padrão validado (buzzer_ambulancia.py): muda a frequência com duty
+        # fixo em 50 %; silenciar = duty 0.
         if freq is None:
-            buzzer.stop()
+            pwm.ChangeDutyCycle(0)
         else:
-            buzzer.play(Tone(freq))
+            pwm.ChangeFrequency(freq)
+            pwm.ChangeDutyCycle(DUTY_50)
 
     ctrl = AlarmController(nota=nota)
-    button = Button(button_pin, bounce_time=DEBOUNCE_S)
-    button.when_pressed = ctrl.disparar
-    # Mantém refs vivas (gpiozero solta o pino se o objeto for coletado).
-    ctrl._refs = (button, buzzer)
+    GPIO.add_event_detect(
+        button_pin,
+        GPIO.FALLING,  # pull-up: pressionar puxa p/ nível baixo
+        callback=lambda _ch: ctrl.disparar(),
+        bouncetime=int(DEBOUNCE_S * 1000),
+    )
+    ctrl._refs = (pwm,)  # mantém o PWM vivo
     print(f"[alarme] armado: botao GPIO{button_pin}, buzzer GPIO{buzzer_pin}")
     return ctrl
 
