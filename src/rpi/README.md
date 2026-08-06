@@ -6,7 +6,7 @@ Código que roda no Raspberry Pi 3B+, junto da câmera e do botão físico.
 |---|---|---|
 | `camera_stream.py` | Servidor Flask do porteiro: `GET /` (vídeo + botão salvar), `GET /stream` (MJPEG), `POST /save` (últimos 10 s). Overlay de horário + ângulo queimado no frame. Captura plugável (`picamera2` CSI → OpenCV USB → sintético). | Porteiro ✔ |
 | `joystick_servo.py` | Laço do joystick Freenove (ADS7830) → servo (RPi.GPIO PWM). `ServoController` roda em thread e publica o ângulo (`self.angle`) que o vídeo mostra. | ✔ |
-| `alarme.py` | Botão de emergência via `gpiozero.Button` (debounce por `bounce_time`) → `POST /alert` para o central, com ACK e retry/backoff. | Esqueleto |
+| `alarme.py` | Botão GPIO21 → `AlarmController`: sirene no buzzer passivo (GPIO17, `TonalBuzzer`), banner "INTRUSO DETECTADO / CHAMANDO A POLICIA" no vídeo, e print salvo como denúncia. | ✔ |
 
 > O backend de câmera é escolhido automaticamente por `make_source()` na ordem
 > CSI → USB → sintético, então o mesmo arquivo roda no Pi e na máquina de dev.
@@ -23,6 +23,25 @@ pelo joystick (`joystick_servo.py`, iniciado junto do servidor). O botão
   gravado em `clips/`). Nos backends USB/sintético, `POST /save` responde `501`.
 - O servo precisa de GPIO, então o porteiro roda com `sudo`. Sem hardware de
   joystick/servo, o servidor sobe mesmo assim e o ângulo fica fixo em 90 g.
+
+## Alarme de intruso (botão + buzzer)
+
+O `camera_stream.py` já arma o alarme (`alarme.start()`). Ao pressionar o
+**botão GPIO21**:
+
+1. O **buzzer passivo (GPIO17)** toca uma sirene (duas notas alternadas).
+2. O vídeo mostra **"INTRUSO DETECTADO / CHAMANDO A POLICIA"** em vermelho
+   enquanto o alarme está ativo (~10 s por acionamento).
+3. Um **print da câmera** (com horário no overlay) é salvo em `denuncias/` e
+   aparece na galeria **`/denuncias`** ("Denúncias à polícia"), acessível pelo
+   botão na tela do porteiro.
+
+Testar sem hardware: `python alarme.py --test`. Pinos (`BUTTON_PIN`,
+`BUZZER_PIN`), duração e notas da sirene ficam no topo de `alarme.py`.
+
+> `gpiozero` já vem no Raspberry Pi OS. Como o servo usa `RPi.GPIO` e o
+> botão/buzzer usam `gpiozero`, num mesmo processo: se der conflito de pino no
+> Pi, calibrar o backend do gpiozero (`GPIOZERO_PIN_FACTORY`).
 
 ## Rodar o servidor de vídeo (Módulo 1)
 

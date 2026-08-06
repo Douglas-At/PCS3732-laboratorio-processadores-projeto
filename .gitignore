@@ -21,6 +21,8 @@ docs/figuras/*.pdf
 
 # Clipes de vídeo salvos pelo porteiro (POST /save)
 clips/
+# Prints salvos a cada disparo do alarme (galeria de denúncias)
+denuncias/
 
 # Uso interno (não versionar)
 ACOMPANHAMENTO.md

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "rpi"))
 
-from camera_stream import SyntheticSource, mjpeg_frame  # noqa: E402
+from camera_stream import SyntheticSource, mjpeg_frame, salvar_denuncia  # noqa: E402
 
 
 def test_synthetic_source_gera_jpeg_valido():
@@ -46,6 +46,24 @@ def test_overlay_com_angulo_mantem_jpeg_valido():
 def test_save_clip_sem_buffer_retorna_none():
     # Salvar 10 s só existe na câmera CSI do Pi; no sintético, sem suporte.
     assert SyntheticSource().save_clip("clips/x") is None
+
+
+def test_overlay_alarme_desenha_e_mantem_jpeg_valido():
+    # Com o alarme ativo, o banner de intruso é pintado sem quebrar o JPEG.
+    jpeg = SyntheticSource(get_alarme=lambda: True).read_jpeg()
+    assert jpeg[:2] == b"\xff\xd8" and jpeg[-2:] == b"\xff\xd9"
+
+
+def test_salvar_denuncia_grava_jpeg():
+    import os
+
+    caminho = salvar_denuncia(SyntheticSource())
+    try:
+        assert os.path.exists(caminho)
+        with open(caminho, "rb") as f:
+            assert f.read(2) == b"\xff\xd8", "denúncia deve ser um JPEG"
+    finally:
+        os.remove(caminho)
 
 
 if __name__ == "__main__":

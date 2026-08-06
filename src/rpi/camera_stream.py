@@ -45,6 +45,18 @@ def _overlay_linhas(angulo: float) -> tuple[str, str]:
     return datetime.now().strftime("%H:%M:%S"), f"ang: {angulo:3.0f} g"
 
 
+def _desenhar_cv2(cv2, arr, angulo: float, alarme: bool) -> None:
+    """Queima horário + ângulo (e o alerta de intruso) num array BGR (cv2)."""
+    fonte = cv2.FONT_HERSHEY_SIMPLEX
+    hora, ang = _overlay_linhas(angulo)
+    cv2.putText(arr, hora, (20, 40), fonte, 1, (0, 255, 0), 2)
+    cv2.putText(arr, ang, (20, 80), fonte, 1, (0, 255, 255), 2)
+    if alarme:
+        # BGR: (0,0,255) = vermelho.
+        cv2.putText(arr, "INTRUSO DETECTADO", (20, 150), fonte, 1.1, (0, 0, 255), 3)
+        cv2.putText(arr, "CHAMANDO A POLICIA", (20, 195), fonte, 1.1, (0, 0, 255), 3)
+
+
 class FrameSource(Protocol):
     """Fonte de frames JPEG, independente do backend de captura."""
 
@@ -81,11 +93,13 @@ class SyntheticSource:
         self,
         size: tuple[int, int] = (640, 480),
         get_angle: Optional[Callable[[], float]] = None,
+        get_alarme: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._size = size
         self._quality = 75
         self._count = 0
         self._get_angle = get_angle or (lambda: float(90))
+        self._get_alarme = get_alarme or (lambda: False)
 
     def read_jpeg(self) -> bytes:
         from PIL import Image, ImageDraw
@@ -98,6 +112,9 @@ class SyntheticSource:
         draw.text((20, 50), hora, fill=(120, 220, 120))
         draw.text((20, 80), ang, fill=(220, 220, 120))
         draw.text((20, 110), f"frame #{self._count}", fill=(150, 150, 150))
+        if self._get_alarme():
+            draw.text((20, 150), "INTRUSO DETECTADO", fill=(255, 0, 0))
+            draw.text((20, 170), "CHAMANDO A POLICIA", fill=(255, 0, 0))
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=self._quality)
         return buf.getvalue()
@@ -116,6 +133,7 @@ class UsbCameraSource:
         self,
         index: int = 0,
         get_angle: Optional[Callable[[], float]] = None,
+        get_alarme: Optional[Callable[[], bool]] = None,
     ) -> None:
         import cv2
 
@@ -125,15 +143,14 @@ class UsbCameraSource:
             raise RuntimeError(f"Câmera USB não encontrada no índice {index}")
         self._quality = 75
         self._get_angle = get_angle or (lambda: float(90))
+        self._get_alarme = get_alarme or (lambda: False)
 
     def read_jpeg(self) -> bytes:
         ok, frame = self._cap.read()
         if not ok:
             raise RuntimeError("Falha ao ler frame da câmera USB")
         cv2 = self._cv2
-        hora, ang = _overlay_linhas(self._get_angle())
-        cv2.putText(frame, hora, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(frame, ang, (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        _desenhar_cv2(cv2, frame, self._get_angle(), self._get_alarme())
         params = [cv2.IMWRITE_JPEG_QUALITY, self._quality]
         ok, buf = cv2.imencode(".jpg", frame, params)
         if not ok:
@@ -180,6 +197,7 @@ class PiCameraSource:
         self,
         size: tuple[int, int] = (640, 480),
         get_angle: Optional[Callable[[], float]] = None,
+        get_alarme: Optional[Callable[[], bool]] = None,
     ) -> None:
         import cv2
         from picamera2 import MappedArray, Picamera2
@@ -189,6 +207,7 @@ class PiCameraSource:
         self._cv2 = cv2
         self._MappedArray = MappedArray
         self._get_angle = get_angle or (lambda: float(90))
+        self._get_alarme = get_alarme or (lambda: False)
 
         self._cam = Picamera2()
         self._cam.configure(
@@ -206,11 +225,8 @@ class PiCameraSource:
         self._cam.start()
 
     def _desenhar_overlay(self, request) -> None:
-        cv2 = self._cv2
-        hora, ang = _overlay_linhas(self._get_angle())
         with self._MappedArray(request, "main") as m:
-            cv2.putText(m.array, hora, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(m.array, ang, (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+            _desenhar_cv2(self._cv2, m.array, self._get_angle(), self._get_alarme())
 
     def read_jpeg(self) -> bytes:
         with self._stream.condition:
@@ -251,12 +267,33 @@ class PiCameraSource:
             return h264
 
 
-def make_source(get_angle: Optional[Callable[[], float]] = None) -> FrameSource:
+def salvar_denuncia(source: FrameSource) -> str:
+    """Salva um print do frame atual (com overlay) em ``denuncias/``.
+
+    Chamado a cada disparo do botão de alarme, para virar prova na galeria
+    "Denúncias à polícia".
+    """
+    from pathlib import Path
+
+    Path("denuncias").mkdir(exist_ok=True)
+    nome = f"denuncias/intruso_{datetime.now():%Y%m%d_%H%M%S}.jpg"
+    with open(nome, "wb") as f:
+        f.write(source.read_jpeg())
+    print(f"[camera_stream] denúncia salva: {nome}")
+    return nome
+
+
+def make_source(
+    get_angle: Optional[Callable[[], float]] = None,
+    get_alarme: Optional[Callable[[], bool]] = None,
+) -> FrameSource:
     """Escolhe o backend disponível: CSI → USB → sintético.
 
     Args:
         get_angle: Callable que devolve o ângulo atual da câmera, para o
             overlay. Se ``None``, usa 90 g fixo.
+        get_alarme: Callable que devolve ``True`` enquanto o alarme está
+            disparado, para o overlay de intruso. Se ``None``, sempre falso.
 
     Returns:
         A primeira :class:`FrameSource` que inicializar sem erro. Assim o mesmo
@@ -264,7 +301,7 @@ def make_source(get_angle: Optional[Callable[[], float]] = None) -> FrameSource:
     """
     for factory in (PiCameraSource, UsbCameraSource, SyntheticSource):
         try:
-            source = factory(get_angle=get_angle)
+            source = factory(get_angle=get_angle, get_alarme=get_alarme)
             print(f"[camera_stream] backend: {factory.__name__}")
             return source
         except Exception as exc:  # ImportError, RuntimeError de hardware ausente
@@ -298,6 +335,7 @@ def create_app(source: FrameSource):
 
     app = Flask(__name__)
     CLIPS_DIR = Path("clips")
+    DENUNCIAS_DIR = Path("denuncias")
 
     @app.route("/")
     def index():
@@ -317,6 +355,9 @@ def create_app(source: FrameSource):
             "<a href='/clips' style='padding:12px 20px;font-size:16px;"
             "border-radius:8px;background:#333;color:#fff;text-decoration:none'>"
             "Ver gravações</a>"
+            "<a href='/denuncias' style='padding:12px 20px;font-size:16px;"
+            "border-radius:8px;background:#333;color:#fff;text-decoration:none'>"
+            "Denúncias</a>"
             "</div></body></html>"
         )
 
@@ -377,6 +418,35 @@ def create_app(source: FrameSource):
     def clip_file(nome):
         return send_from_directory(CLIPS_DIR, nome)
 
+    @app.route("/denuncias")
+    def denuncias():
+        # Galeria dos prints salvos a cada disparo do botão de alarme.
+        fotos = sorted(
+            DENUNCIAS_DIR.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
+        ) if DENUNCIAS_DIR.exists() else []
+        itens = "".join(
+            f"<figure style='margin:0'><img src='/denuncias/{p.name}' "
+            "style='width:100%;border-radius:8px'>"
+            f"<figcaption style='font-size:13px;color:#aaa'>{p.name}</figcaption>"
+            "</figure>"
+            for p in fotos
+        ) or "<p>Nenhuma denúncia registrada.</p>"
+        return (
+            "<!doctype html><html><head><meta charset='utf-8'>"
+            "<title>Porteiro — denúncias à polícia</title></head>"
+            "<body style='margin:0;padding:16px;background:#111;color:#eee;"
+            "font-family:sans-serif'>"
+            "<a href='/' style='color:#8bf'>← voltar ao vídeo</a>"
+            "<h2>Denúncias à polícia</h2>"
+            "<div style='display:grid;grid-template-columns:"
+            "repeat(auto-fill,minmax(240px,1fr));gap:12px'>" + itens + "</div>"
+            "</body></html>"
+        )
+
+    @app.route("/denuncias/<path:nome>")
+    def denuncia_file(nome):
+        return send_from_directory(DENUNCIAS_DIR, nome)
+
     return app
 
 
@@ -384,10 +454,22 @@ def main() -> None:
     """Sobe o porteiro: joystick em thread + servidor de vídeo na rede local."""
     import joystick_servo
 
+    import alarme
+
     ctrl = joystick_servo.start_in_thread()
     get_angle = (lambda: ctrl.angle) if ctrl else (lambda: float(90))
 
-    app = create_app(make_source(get_angle))
+    alarm = alarme.start()
+    get_alarme = (lambda: alarm.ativo) if alarm else (lambda: False)
+
+    source = make_source(get_angle, get_alarme)
+
+    # No disparo do botão (GPIO21): sirene + banner no vídeo (via alarm.ativo)
+    # + print salvo como denúncia.
+    if alarm:
+        alarm.on_disparo = lambda: salvar_denuncia(source)
+
+    app = create_app(source)
     # threaded=True: o /stream mantém a conexão aberta; sem isso, / e /save
     # ficariam bloqueados enquanto alguém assiste.
     app.run(host="0.0.0.0", port=PORT, threaded=True)
