@@ -1,0 +1,16 @@
+# Dependências da camada de borda (Raspberry Pi).
+# Instalar:  pip install -r requirements.txt
+#
+# Obs.: picamera2 e gpiozero já vêm no Raspberry Pi OS (instalados via apt, não
+# por pip) — por isso não estão listados aqui. Se o picamera2 faltar:
+#     sudo apt install -y python3-picamera2
+
+# Servidor de vídeo (GET /stream, GET /control) — Módulo 1.
+flask
+
+# Backend da câmera USB. Descomente SÓ se usar webcam USB em vez do módulo CSI.
+# (Com módulo CSI, a captura usa o picamera2 do sistema.)
+# opencv-python
+
+# Envio do POST /alert do botão de emergência — módulo do alarme (RF2).
+requests
