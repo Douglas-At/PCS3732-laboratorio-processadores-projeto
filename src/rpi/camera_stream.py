@@ -32,10 +32,10 @@ sintético, então o mesmo arquivo roda no Pi e na máquina de dev.
 from __future__ import annotations
 
 from datetime import datetime
-from io import BytesIO
+from io import BufferedIOBase, BytesIO
 from typing import Callable, Optional, Protocol
 
-FPS = 15  # ponytail: limita CPU; calibrar no Raspberry Pi 3B+ real.
+FPS = 15  
 PORT = 5000
 BUFFER_SEGUNDOS = 10  # janela do "salvar últimos N s"
 
@@ -147,11 +147,12 @@ class UsbCameraSource:
         return None  # sem buffer circular no backend USB
 
 
-class _StreamingOutput:
+class _StreamingOutput(BufferedIOBase):
     """Buffer de "último frame" para o JpegEncoder do picamera2.
 
     Padrão do exemplo oficial ``mjpeg_server.py``: o encoder chama ``write``
-    a cada frame; ``read_jpeg`` espera o próximo e o devolve.
+    a cada frame; ``read_jpeg`` espera o próximo e o devolve. Precisa herdar
+    ``io.BufferedIOBase`` — o ``FileOutput`` do picamera2 exige isso.
     """
 
     def __init__(self) -> None:
@@ -198,7 +199,6 @@ class PiCameraSource:
         self._cam.pre_callback = self._desenhar_overlay
 
         self._stream = _StreamingOutput()
-        # ponytail: buffersize ~ nº de frames; calibrar no Pi real (o encoder
         # pode fugir do FPS nominal). Alvo: BUFFER_SEGUNDOS de vídeo.
         self._circular = CircularOutput(buffersize=BUFFER_SEGUNDOS * FPS)
         self._cam.start_encoder(JpegEncoder(), FileOutput(self._stream))

@@ -20,7 +20,7 @@ ACK/retry entra na Semana 2.
 
 from __future__ import annotations
 
-# ponytail: valor inicial; recalibrar contra o contato mecânico real do botão.
+
 DEBOUNCE_S = 0.05  # ~50 ms
 
 
@@ -30,7 +30,7 @@ def on_button_pressed() -> None:
     Deve enviar ``POST /alert`` ao Serviço de Alarme central e, em falha de
     rede, retransmitir com *retry*/*backoff*.
     """
-    # ponytail: envio HTTP (requests) + retry/backoff entram na Semana 2.
+
     raise NotImplementedError("Envio do alerta implementado na Semana 2")
 
 

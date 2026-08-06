@@ -91,8 +91,6 @@ class ServoController:
         self.read_sw = read_sw
         self._apply = apply_pulse or (lambda duty: None)
         self.dt = dt
-        # ponytail: float simples; leitura por outra thread e atomica no CPython,
-        # e so serve de display no video -> sem lock.
         self.angle = float(ANG_CENTRO)
         self._ultimo = None
         self._stop = False
@@ -115,7 +113,6 @@ class ServoController:
         try:
             while not self._stop:
                 self.step()
-                # ponytail: mantem o trem de pulsos ativo (servo pode zumbir
                 # parado). Se incomodar, soltar duty=0 apos ~0,3 s sem movimento.
                 time.sleep(self.dt)
         finally:
