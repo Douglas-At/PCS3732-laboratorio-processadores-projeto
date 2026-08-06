@@ -38,11 +38,10 @@ O `camera_stream.py` já arma o alarme (`alarme.start()`). Ao pressionar o
    botão na tela do porteiro.
 
 Testar sem hardware: `python alarme.py --test`. Pinos (`BUTTON_PIN`,
-`BUZZER_PIN`), duração e notas da sirene ficam no topo de `alarme.py`.
+`BUZZER_PIN`), duração e tons da sirene ficam no topo de `alarme.py`.
 
-> `gpiozero` já vem no Raspberry Pi OS. Como o servo usa `RPi.GPIO` e o
-> botão/buzzer usam `gpiozero`, num mesmo processo: se der conflito de pino no
-> Pi, calibrar o backend do gpiozero (`GPIOZERO_PIN_FACTORY`).
+> Botão e buzzer usam `RPi.GPIO` (igual ao servo), então não há conflito de
+> backend entre bibliotecas. O buzzer é PWM de software no GPIO4.
 
 ## Rodar o servidor de vídeo (Módulo 1)
 
