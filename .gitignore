@@ -19,6 +19,9 @@ env/
 *.tmp
 docs/figuras/*.pdf
 
+# Clipes de vídeo salvos pelo porteiro (POST /save)
+clips/
+
 # Uso interno (não versionar)
 ACOMPANHAMENTO.md
 

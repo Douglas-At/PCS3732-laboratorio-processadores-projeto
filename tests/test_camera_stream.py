@@ -36,6 +36,18 @@ def test_mjpeg_frame_monta_chunk_multipart():
     assert chunk.endswith(b"\r\n")
 
 
+def test_overlay_com_angulo_mantem_jpeg_valido():
+    # Overlay (horário + ângulo do joystick) desenhado sem quebrar o JPEG.
+    jpeg = SyntheticSource(get_angle=lambda: 42.0).read_jpeg()
+    assert jpeg[:2] == b"\xff\xd8", "JPEG deve começar com SOI (FFD8)"
+    assert jpeg[-2:] == b"\xff\xd9", "JPEG deve terminar com EOI (FFD9)"
+
+
+def test_save_clip_sem_buffer_retorna_none():
+    # Salvar 10 s só existe na câmera CSI do Pi; no sintético, sem suporte.
+    assert SyntheticSource().save_clip("clips/x") is None
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
