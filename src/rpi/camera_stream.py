@@ -294,9 +294,10 @@ def create_app(source: FrameSource):
     import time
     from pathlib import Path
 
-    from flask import Flask, Response, jsonify
+    from flask import Flask, Response, jsonify, send_from_directory
 
     app = Flask(__name__)
+    CLIPS_DIR = Path("clips")
 
     @app.route("/")
     def index():
@@ -305,15 +306,18 @@ def create_app(source: FrameSource):
             "<title>Porteiro — vídeo</title></head>"
             "<body style='margin:0;background:#111;font-family:sans-serif'>"
             "<img src='/stream' style='width:100%;height:auto;display:block'>"
+            "<div style='position:fixed;bottom:16px;left:0;right:0;"
+            "display:flex;gap:12px;justify-content:center'>"
             "<button onclick=\"fetch('/save',{method:'POST'}).then(async r=>{"
             "if(!r.ok){alert(await r.text());return;}"
             "const j=await r.json();alert('Salvo: '+j.arquivo);})"
             ".catch(()=>alert('Falha ao salvar'))\" "
-            "style='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);"
-            "padding:12px 20px;font-size:16px;border:0;border-radius:8px;"
-            "background:#c33;color:#fff;cursor:pointer'>"
-            "Salvar últimos 10 s</button>"
-            "</body></html>"
+            "style='padding:12px 20px;font-size:16px;border:0;border-radius:8px;"
+            "background:#c33;color:#fff;cursor:pointer'>Salvar últimos 10 s</button>"
+            "<a href='/clips' style='padding:12px 20px;font-size:16px;"
+            "border-radius:8px;background:#333;color:#fff;text-decoration:none'>"
+            "Ver gravações</a>"
+            "</div></body></html>"
         )
 
     @app.route("/stream")
@@ -329,7 +333,7 @@ def create_app(source: FrameSource):
 
     @app.route("/save", methods=["POST"])
     def save():
-        Path("clips").mkdir(exist_ok=True)
+        CLIPS_DIR.mkdir(exist_ok=True)
         base = f"clips/porteiro_{datetime.now():%Y%m%d_%H%M%S}"
         out = source.save_clip(base)
         if out is None:
@@ -338,6 +342,40 @@ def create_app(source: FrameSource):
                 501,
             )
         return jsonify(arquivo=out)
+
+    @app.route("/clips")
+    def clips():
+        # Lista os clipes salvos (mais novos primeiro): mp4 toca no navegador,
+        # h264 fica como download.
+        arquivos = sorted(
+            CLIPS_DIR.glob("*.*"), key=lambda p: p.stat().st_mtime, reverse=True
+        ) if CLIPS_DIR.exists() else []
+        itens = "".join(
+            (
+                f"<div style='margin:16px 0'><p>{p.name}</p>"
+                + (
+                    f"<video src='/clips/{p.name}' controls "
+                    "style='max-width:100%;border-radius:8px'></video>"
+                    if p.suffix == ".mp4"
+                    else ""
+                )
+                + f"<p><a href='/clips/{p.name}' download style='color:#8bf'>"
+                "baixar</a></p></div>"
+            )
+            for p in arquivos
+        ) or "<p>Nenhuma gravação ainda.</p>"
+        return (
+            "<!doctype html><html><head><meta charset='utf-8'>"
+            "<title>Porteiro — gravações</title></head>"
+            "<body style='margin:0;padding:16px;background:#111;color:#eee;"
+            "font-family:sans-serif'>"
+            "<a href='/' style='color:#8bf'>← voltar ao vídeo</a>"
+            "<h2>Gravações</h2>" + itens + "</body></html>"
+        )
+
+    @app.route("/clips/<path:nome>")
+    def clip_file(nome):
+        return send_from_directory(CLIPS_DIR, nome)
 
     return app
 
