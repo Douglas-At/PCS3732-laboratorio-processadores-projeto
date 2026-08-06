@@ -10,7 +10,7 @@
 # Mapeamento INCREMENTAL: joystick no centro segura a posicao;
 # empurrar p/ um lado aumenta o angulo, p/ o outro diminui,
 # proporcional a quao longe do centro. Clicar o joystick (SW,
-# GPIO7) recentra em 90 g. Faixa util do atuador: 20-160 g.
+# GPIO7) recentra em 90 g. Faixa util do atuador: 0-180 g.
 #
 # Servo no GPIO18. Alimentacao 5V com GND COMUM ao RPi.
 # Nunca alimentar o servo pelo 3,3V.
@@ -188,7 +188,7 @@ def demo():
     for _ in range(1000):
         ang = proximo_angulo(ang, -1.0)
     assert ang == ANG_MIN
-    print("demo OK: faixa 20-160 g, zona morta e travas respeitadas")
+    print("demo OK: faixa 0-180 g, zona morta e travas respeitadas")
 
 
 def main():

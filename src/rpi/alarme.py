@@ -111,12 +111,20 @@ def start(button_pin: int = BUTTON_PIN, buzzer_pin: int = BUZZER_PIN):
             pwm.ChangeDutyCycle(DUTY_50)
 
     ctrl = AlarmController(nota=nota)
-    GPIO.add_event_detect(
-        button_pin,
-        GPIO.FALLING,  # pull-up: pressionar puxa p/ nível baixo
-        callback=lambda _ch: ctrl.disparar(),
-        bouncetime=int(DEBOUNCE_S * 1000),
-    )
+
+    # Polling em vez de add_event_detect: o RPi.GPIO falha ("Failed to add edge
+    # detection") em kernel novo (Bookworm). Detecta a borda de descida em
+    # software — pull-up, pressionar puxa p/ nível baixo.
+    def _vigia_botao():
+        anterior = 1
+        while True:
+            atual = GPIO.input(button_pin)
+            if anterior == 1 and atual == 0:
+                ctrl.disparar()
+            anterior = atual
+            time.sleep(DEBOUNCE_S)
+
+    threading.Thread(target=_vigia_botao, daemon=True).start()
     ctrl._refs = (pwm,)  # mantém o PWM vivo
     print(f"[alarme] armado: botao GPIO{button_pin}, buzzer GPIO{buzzer_pin}")
     return ctrl
