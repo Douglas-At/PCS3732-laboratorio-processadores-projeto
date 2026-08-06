@@ -167,7 +167,10 @@ a rede em modo Access Point. Os demais casos seguem planejados. Os casos de RF2
 automatizados** (ponto extra); há uma primeira checagem executável do pipe de
 vídeo em `tests/test_camera_stream.py`.
 
-## 11. Conclusões (Preliminares)
+## 11. Resultado dos testes iniciais
+Na semana 2, foi realizado um teste de transmissão de vídeo em tempo real utilizando a câmera conectada ao Raspberry Pi 3. Inicialmente, a câmera foi instalada e configurada no dispositivo, e em seguida foi criado um ponto de acesso (Access Point) para permitir a transmissão das imagens por meio da rede sem fio. O teste foi concluído com sucesso, demonstrando que a transmissão ocorreu de forma estável e conforme o esperado. O vídeo correspondente ao experimento encontra-se disponível em [`docs/videos/teste_camera.mp4`](..docs/videos/teste_camera.mp4).
+
+## 12. Conclusões (Preliminares)
 
 Nesta primeira semana o projeto foi estruturado: repositório organizado,
 documentação inicial, diagramas de arquitetura e esqueleto do código em camadas.
